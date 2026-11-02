@@ -1,0 +1,83 @@
+/* Version B — tokens from DESIGN-2.md */
+:root {
+  --color-canvas-white: #ffffff;
+  --color-wordmark-black: #000000;
+  --color-signal-red: #f11216;
+  --color-cyan-blue: #2e99c9;
+  --font: 'Helvetica Neue', Helvetica, Inter, Arial, sans-serif;
+  --text-nav: 10px;
+  --text-body-sm: 14px;
+  --text-body: 18px;
+  --gap: 15px;
+  --spacing-43: 43px;
+  --section-gap: 120px;
+  --side: 30vw;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
+html { background: var(--color-canvas-white); }
+body {
+  font: 700 var(--text-body)/1.5 var(--font); letter-spacing: -0.02em;
+  color: var(--color-wordmark-black); -webkit-font-smoothing: antialiased;
+  display: grid; grid-template-columns: var(--side) minmax(0, 1fr);
+}
+a, button { color: inherit; font: inherit; letter-spacing: inherit; text-decoration: none; background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 1px solid var(--color-signal-red); outline-offset: 3px; }
+p + p { margin-top: 1em; }
+
+/* The wordmark: identity and architecture */
+.side { position: sticky; top: 0; height: 100vh; height: 100dvh; padding: var(--gap); display: flex; flex-direction: column; justify-content: space-between; }
+.wordmark { display: flex; flex-direction: column; font-size: min(calc(var(--side) / 1.35), 42vh); line-height: .85; letter-spacing: -0.02em; }
+.wordmark span:first-child { margin-left: -0.04em; }
+.tag { font-size: var(--text-nav); line-height: 1; letter-spacing: -0.2px; text-transform: uppercase; }
+
+/* Bare 10px links, underlined in a chromatic hairline */
+.nav { position: fixed; top: var(--gap); right: var(--gap); z-index: 5; display: flex; gap: var(--gap); font-size: var(--text-nav); line-height: 1; letter-spacing: -0.2px; text-transform: uppercase; }
+.nav a { padding-bottom: 2px; border-bottom: 1px solid transparent; }
+.nav a:nth-child(odd) { border-bottom-color: var(--color-signal-red); }
+.nav a:nth-child(even) { border-bottom-color: var(--color-cyan-blue); }
+.nav a.on { background: var(--color-wordmark-black); color: var(--color-canvas-white); }
+#cart-link:empty { display: none; }
+
+main { padding: var(--spacing-43) var(--gap) var(--section-gap) 0; min-width: 0; }
+
+/* Masonry with chromatic hairline frames */
+.masonry { columns: 3; column-gap: var(--gap); }
+.masonry + .break, .break + .masonry { margin-top: var(--gap); }
+.tile { display: block; break-inside: avoid; margin-bottom: var(--gap); }
+.frame { display: block; border: 1px solid var(--f); background: var(--c); }
+.frame img { width: 100%; height: auto; display: block; }
+.cap { display: inline-block; margin-top: 8px; font-size: var(--text-nav); line-height: 1; letter-spacing: -0.2px; text-transform: uppercase; padding-bottom: 2px; border-bottom: 1px solid var(--f); }
+.break { display: block; background: var(--c); }
+.break img { width: 100%; height: auto; display: block; }
+
+/* Pages */
+.page { max-width: 46em; }
+.page h2 { font: inherit; margin-bottom: var(--spacing-43); }
+.small { font-size: var(--text-body-sm); line-height: 1.4; }
+.action { display: inline-block; border: 1px solid var(--f, var(--color-signal-red)); padding: 4px 10px; line-height: 1.2; }
+.action:hover { background: var(--f, var(--color-signal-red)); color: var(--color-canvas-white); }
+.row { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; margin-top: var(--gap); }
+.size.on { border-bottom: 1px solid var(--f); }
+.product { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--spacing-43); align-items: start; max-width: none; }
+.product .frame img { max-height: calc(100dvh - 100px); width: auto; max-width: 100%; }
+.product .frame { display: inline-block; }
+.product h2 { margin-bottom: 0; }
+.opt { margin-top: var(--spacing-43); }
+.lines li { list-style: none; display: grid; grid-template-columns: 1fr auto auto; gap: var(--gap); padding: 6px 0; border-bottom: 1px solid var(--color-wordmark-black); }
+.lines .total { border-bottom: 0; }
+.shop-series { margin-top: var(--section-gap); }
+.shop-series:first-of-type { margin-top: var(--spacing-43); }
+.shop-series > p { margin-bottom: var(--gap); }
+
+@media (max-width: 1100px) { .masonry { columns: 2; } }
+@media (max-width: 800px) {
+  body { display: block; }
+  .side { position: static; height: auto; padding: var(--gap) var(--gap) 0; }
+  .wordmark { flex-direction: row; font-size: calc((100vw - 2 * var(--gap)) / 2.5); }
+  .tag { margin-top: 8px; }
+  .nav { position: static; flex-wrap: wrap; padding: var(--spacing-43) var(--gap) 0; }
+  main { padding: var(--spacing-43) var(--gap) var(--section-gap); }
+  .product { grid-template-columns: 1fr; }
+  .product .frame img { max-height: none; width: 100%; }
+}
