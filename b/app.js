@@ -1,4 +1,4 @@
-// Version B. Photos and colours come from ../data.js.
+// Version B, after juliajohnson.com. Photos and colours come from ../data.js.
 // Placeholder prices — set real ones before launch.
 const WALLPAPER_PRICE = 5;
 const PRINT_SIZES = [ // long edge in inches
@@ -17,23 +17,18 @@ const cap = (s) => s[0].toUpperCase() + s.slice(1);
 const title = (p) => `${cap(p.series)} ${p.id.split('-')[1]}`;
 const byId = Object.fromEntries(PHOTOS.map((p) => [p.id, p]));
 const wallpaperKind = (p) => p.h > p.w * 1.1 ? 'Phone wallpaper' : p.w > p.h * 1.1 ? 'Desktop wallpaper' : 'Phone + desktop wallpaper';
+const alt = (p) => `${title(p)} — photograph by Jo Do`;
+const mod = (a, n) => ((a % n) + n) % n;
 
-// Hairline frame: the DESIGN-2 accent nearest the photo's most vivid hue; black for neutral photos.
-function frameColor(p) {
+// Hover dot colour: the DESIGN-2 accent nearest the photo's most vivid hue; black for neutral photos.
+function accent(p) {
   const hex = [p.top, p.bottom].find((c) => c !== '#e9e6e1');
   if (!hex) return '#000000';
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
   const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
-  let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  h = (h * 60 + 360) % 360;
-  if (h < 15 || h >= 330) return '#e21715'; // vermillion
-  if (h < 40) return '#f2572c';             // marigold
-  if (h < 70) return '#b3813c';             // brass
-  if (h < 170) return '#5bc52c';            // fern
-  return '#086392';                         // cobalt
+  const h = ((max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360;
+  return h < 15 || h >= 330 ? '#e21715' : h < 40 ? '#f2572c' : h < 70 ? '#b3813c' : h < 170 ? '#5bc52c' : '#086392';
 }
-const vars = (p) => `--f:${frameColor(p)};--c:${p.color}`;
-const img = (p, src = p.src, lazy = true) => `<img src="${ROOT + src}" alt="${title(p)} — photograph by Jo Do" width="${p.w}" height="${p.h}"${lazy ? ' loading="lazy"' : ''}>`;
 
 // Home sequence: skyline first, then the three series interleaved.
 const HOME = (() => {
@@ -50,54 +45,148 @@ cart = cart.filter((l) => byId[l.id]);
 const saveCart = () => { try { localStorage.setItem('jodo-cart-b', JSON.stringify(cart)); } catch {} };
 const showCartCount = () => { $('cart-link').textContent = cart.length ? `Cart (${cart.length})` : ''; };
 
-/* ---------- views ---------- */
-// Masonry, broken by a full-width landscape roughly every eight tiles (and at the very top).
-function renderGallery(list) {
-  const parts = [];
-  let tiles = [];
-  list.forEach((p, i) => {
-    if (p.w > p.h * 1.3 && (i === 0 || tiles.length >= 8)) {
-      if (tiles.length) parts.push(`<div class="masonry">${tiles.join('')}</div>`);
-      tiles = [];
-      parts.push(`<a class="break" href="#/shop/${p.id}" style="${vars(p)}">${img(p, p.src, i > 0)}</a>`);
-    } else {
-      tiles.push(`<a class="tile" href="#/shop/${p.id}" style="${vars(p)}"><span class="frame">${img(p)}</span><span class="cap">${title(p)}</span></a>`);
+/* ---------- menu ---------- */
+const menu = $('menu'), menuBtn = $('menu-btn'), menuImages = $('menu-images');
+const MENU_PHOTOS = {
+  portrait: ['portrait-02', 'portrait-09', 'portrait-07'],
+  street: ['street-05', 'street-13', 'street-08'],
+  concert: ['concert-02', 'concert-09', 'concert-06'],
+  shop: ['portrait-04', 'concert-01', 'street-01'],
+  about: ['portrait-12', 'street-16', 'concert-10'],
+};
+menuImages.innerHTML = Object.entries(MENU_PHOTOS).map(([key, ids]) =>
+  ids.map((id) => `<img data-key="${key}" src="${ROOT + byId[id].thumb}" alt="" loading="lazy">`).join('')).join('');
+function setMenu(open) {
+  document.body.classList.toggle('menu-open', open);
+  document.body.classList.toggle('locked', open);
+  menu.setAttribute('aria-hidden', !open);
+  menuBtn.setAttribute('aria-expanded', open);
+  if (!open) setMenuKey('');
+}
+function setMenuKey(key) {
+  menu.dataset.key = key;
+  menuImages.querySelectorAll('img').forEach((img) => img.classList.toggle('on', img.dataset.key === key));
+}
+menuBtn.onclick = () => setMenu(!document.body.classList.contains('menu-open'));
+$('menu-links').querySelectorAll('a').forEach((a) => {
+  a.addEventListener('mouseenter', () => setMenuKey(a.dataset.key));
+  a.addEventListener('mouseleave', () => setMenuKey(''));
+});
+addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
+
+/* ---------- infinite canvas: columns of cells that drift, drag and wrap ---------- */
+const HEIGHTS = [480, 600, 360]; // cell heights at a 480px cell width, as on the reference
+let stopCanvas = null;
+
+function renderCanvas(photos) {
+  document.body.classList.remove('page-mode');
+  let list = photos;
+  while (list.length < 24) list = list.concat(photos); // small series repeat so the wall stays full
+  view.innerHTML = `<div class="canvas">${list.map((p) =>
+    `<div class="cell"><a href="#/shop/${p.id}" draggable="false" style="--c:${p.color};color:${accent(p)}"><img src="${ROOT + p.thumb}" alt="${alt(p)}" draggable="false" loading="lazy"></a></div>`).join('')}</div>`;
+  const canvas = view.firstElementChild;
+  const els = [...canvas.children];
+  els.forEach((el) => { const img = el.querySelector('img'); img.onload = () => img.classList.add('in'); if (img.complete) img.classList.add('in'); });
+
+  let cells = [], W = 0, H = 0, unit = 1;
+  function layout() {
+    const cw = Math.max(innerWidth / 3, 260), pad = cw * 0.09;
+    unit = cw / 480;
+    const cols = [[], [], [], [], [], []];
+    list.forEach((p, i) => {
+      const col = i % 6, h = HEIGHTS[(Math.floor(i / 6) + col) % 3] * unit;
+      cols[col].push({ el: els[i], p, h });
+    });
+    W = cw * 6;
+    H = Math.max(...cols.map((c) => c.reduce((s, x) => s + x.h, 0)));
+    cells = [];
+    cols.forEach((col, ci) => {
+      const spare = (H - col.reduce((s, x) => s + x.h, 0)) / col.length; // even out column lengths
+      let y = 0;
+      col.forEach((c) => {
+        const iw = cw - 2 * pad, ih = c.h - 2 * pad, ratio = c.p.w / c.p.h;
+        const [w, h] = ratio > iw / ih ? [iw, iw / ratio] : [ih * ratio, ih];
+        Object.assign(c.el.style, { width: `${cw}px`, height: `${c.h}px` });
+        Object.assign(c.el.firstElementChild.style, { width: `${w}px`, height: `${h}px` });
+        cells.push({ ...c, bx: ci * cw, by: y, cw });
+        y += c.h + spare;
+      });
+    });
+  }
+
+  // Pan state: target follows wheel, drag and drift; current eases toward it.
+  let tx = 0, ty = 0, cx = 0, cy = 0, last = performance.now(), raf = 0;
+  let drag = null, moved = 0;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!drag && !still) { tx += 30 * unit * dt; ty -= 30 * unit * dt; }
+    cx += (tx - cx) * Math.min(1, dt * 7); cy += (ty - cy) * Math.min(1, dt * 7);
+    for (const c of cells) {
+      const x = mod(c.bx + cx + c.cw, W) - c.cw, y = mod(c.by + cy + c.h, H) - c.h;
+      c.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     }
-  });
-  if (tiles.length) parts.push(`<div class="masonry">${tiles.join('')}</div>`);
-  view.innerHTML = parts.join('');
+    raf = requestAnimationFrame(frame);
+  }
+
+  const onWheel = (e) => { e.preventDefault(); tx -= e.deltaX; ty -= e.deltaY; };
+  const onDown = (e) => { drag = { x: e.clientX, y: e.clientY }; moved = 0; };
+  const onMove = (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag = { x: e.clientX, y: e.clientY };
+    moved += Math.abs(dx) + Math.abs(dy);
+    tx += dx; ty += dy; cx += dx; cy += dy;
+    document.documentElement.classList.toggle('dragging', moved > 6);
+  };
+  const onUp = () => { drag = null; document.documentElement.classList.remove('dragging'); };
+  const onClick = (e) => { if (moved > 6) { e.preventDefault(); e.stopPropagation(); } };
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('pointerdown', onDown);
+  canvas.addEventListener('click', onClick, true);
+  addEventListener('pointermove', onMove);
+  addEventListener('pointerup', onUp);
+  addEventListener('pointercancel', onUp);
+  addEventListener('resize', layout);
+
+  layout();
+  raf = requestAnimationFrame(frame);
+  stopCanvas = () => {
+    cancelAnimationFrame(raf);
+    removeEventListener('pointermove', onMove); removeEventListener('pointerup', onUp);
+    removeEventListener('pointercancel', onUp); removeEventListener('resize', layout);
+  };
 }
 
-function renderInfo() {
-  view.innerHTML = `<div class="page">
-    <h2>About Johanan</h2>
+/* ---------- content pages ---------- */
+const photoBlock = (p, src = p.src, lazy = true) =>
+  `<span class="ph" style="--c:${p.color}"><img src="${ROOT + src}" alt="${alt(p)}" width="${p.w}" height="${p.h}"${lazy ? ' loading="lazy"' : ''}></span>`;
+
+function renderAbout() {
+  view.innerHTML = `<div class="page"><h1>About me</h1><div class="narrow">
     <p>Hi! I’m Johanan, also known as Jo Do. I’m a Brooklyn based photographer and videographer. I began my journey in photography, and more recently videography, in 2020. At a time where fear and uncertainty loomed over us all, I took it upon myself to grab my camera and still find the beauty in such a difficult time.</p>
     <p>Since then I have worked on various projects, music events and collaborated with other content creators and artists. It is my belief that art allows us to access our inner most thoughts, passions, fears and aspirations that other mediums simply cannot. That said, it is my passion and calling to bring your vision to life. Let’s create!</p>
-    <div class="row" style="margin-top:43px">
+    <div class="row" style="margin-top:40px">
       <a class="action" href="mailto:jodo.media1@gmail.com">jodo.media1@gmail.com</a>
-      <a class="action" style="--f:#2e99c9" href="tel:+16464062143">(646) 406-2143</a>
+      <a class="action" href="tel:+16464062143">(646) 406-2143</a>
       <a class="action" href="https://www.instagram.com/jo___do/" target="_blank" rel="noopener">Instagram</a>
-    </div>
-  </div>`;
+    </div></div></div>`;
 }
 
 function renderShop() {
-  view.innerHTML = `<div class="page"><h2>Wallpapers &amp; prints</h2>
-    <p class="small">Every photograph is available as a high-resolution wallpaper file and as an archival print, made to order in Brooklyn. Pick a photo to see options.</p></div>
-    ${SERIES.map((s) => {
-      const list = PHOTOS.filter((p) => p.series === s);
-      return `<section class="shop-series"><p>${cap(s)}</p><div class="masonry">
-        ${list.map((p) => `<a class="tile" href="#/shop/${p.id}" style="${vars(p)}"><span class="frame">${img(p, p.thumb)}</span><span class="cap">${title(p)}</span></a>`).join('')}
-      </div></section>`;
-    }).join('')}`;
+  view.innerHTML = `<div class="page"><h1>Wallpapers &amp; prints</h1>
+    <p class="small narrow">Every photograph is available as a high-resolution wallpaper file and as an archival print, made to order in Brooklyn. Pick a photo to see options.</p>
+    ${SERIES.map((s) => `<section class="shop-series"><p>${cap(s)}</p><div class="shop-grid">
+      ${PHOTOS.filter((p) => p.series === s).map((p) => `<a href="#/shop/${p.id}">${photoBlock(p, p.thumb)}<span class="cap">${title(p)}</span></a>`).join('')}
+    </div></section>`).join('')}</div>`;
 }
 
 function renderProduct(p) {
   let size = 1;
-  view.innerHTML = `<div class="page product" style="${vars(p)}">
-    <span class="frame">${img(p, p.src, false)}</span>
+  view.innerHTML = `<div class="page product">
+    ${photoBlock(p, p.src, false)}
     <div>
-      <h2>${title(p)}</h2>
+      <h1>${title(p)}</h1>
       <p class="small">${p.w} × ${p.h} px original</p>
       <div class="opt">
         <p>${wallpaperKind(p)} — $${WALLPAPER_PRICE}</p>
@@ -122,7 +211,7 @@ function renderProduct(p) {
       ? { id: p.id, kind: 'print', size: PRINT_SIZES[size].size, price: PRINT_SIZES[size].price }
       : { id: p.id, kind: 'wallpaper', price: WALLPAPER_PRICE });
     saveCart(); showCartCount();
-    $('added').innerHTML = `Added. <a class="cap" href="#/cart">View cart</a>`;
+    $('added').innerHTML = `Added. <a href="#/cart" style="text-decoration:underline">View cart</a>`;
   });
 }
 
@@ -132,33 +221,31 @@ function renderCart() {
   const total = cart.reduce((s, l) => s + l.price, 0);
   const body = cart.map((l) => `${lineName(l)} — $${l.price}`).join('\n') + `\n\nTotal: $${total}`;
   const mailto = `mailto:${ORDER_EMAIL}?subject=${encodeURIComponent('Order — JoDo Media')}&body=${encodeURIComponent(`Hi Jo,\n\nI'd like to order:\n\n${body}\n\nShip to (prints only):\n`)}`;
-  view.innerHTML = `<div class="page"><h2>Cart</h2>${cart.length ? `
+  view.innerHTML = `<div class="page"><h1>Cart</h1><div class="narrow">${cart.length ? `
     <ul class="lines">
       ${cart.map((l, i) => `<li><a href="#/shop/${l.id}">${lineName(l)}</a><span>$${l.price}</span><button type="button" class="small" data-rm="${i}">Remove</button></li>`).join('')}
       <li class="total"><span>Total</span><span>$${total}</span><span></span></li>
     </ul>
-    <div class="row" style="margin-top:43px"><a class="action" href="${mailto}">Order by email</a><a class="action" style="--f:#2e99c9" href="#/shop">Keep browsing</a></div>
-    <p class="small" style="margin-top:43px">Card checkout is coming soon. For now, email the order and Jo will reply with payment details.</p>`
-    : `<p>Your cart is empty.</p><div class="row"><a class="action" href="#/shop">Browse wallpapers &amp; prints</a></div>`}</div>`;
+    <div class="row" style="margin-top:40px"><a class="action" href="${mailto}">Order by email</a><a class="action" href="#/shop">Keep browsing</a></div>
+    <p class="small" style="margin-top:40px">Card checkout is coming soon. For now, email the order and Jo will reply with payment details.</p>`
+    : `<p>Your cart is empty.</p><div class="row"><a class="action" href="#/shop">Browse wallpapers &amp; prints</a></div>`}</div></div>`;
   view.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { cart.splice(+b.dataset.rm, 1); saveCart(); showCartCount(); renderCart(); });
 }
 
-/* ---------- router (remembers scroll position per page) ---------- */
-const scrollMemo = {};
-let current = null;
+/* ---------- router ---------- */
 function route() {
-  if (current !== null) scrollMemo[current] = scrollY;
-  current = location.hash || '#/';
-  const [, a, b] = current.split('/');
-  if (SERIES.includes(a)) renderGallery(PHOTOS.filter((p) => p.series === a));
+  if (stopCanvas) { stopCanvas(); stopCanvas = null; }
+  const [, a, b] = (location.hash || '#/').split('/');
+  document.body.classList.add('page-mode');
+  if (SERIES.includes(a)) renderCanvas(PHOTOS.filter((p) => p.series === a));
   else if (a === 'shop' && byId[b]) renderProduct(byId[b]);
   else if (a === 'shop') renderShop();
   else if (a === 'cart') renderCart();
-  else if (a === 'info') renderInfo();
-  else renderGallery(HOME);
-  document.querySelectorAll('.nav a').forEach((l) => l.classList.toggle('on', l.getAttribute('href') === `#/${a}`));
+  else if (a === 'about') renderAbout();
+  else renderCanvas(HOME);
   showCartCount();
-  scrollTo(0, scrollMemo[current] || 0);
+  setMenu(false);
+  scrollTo(0, 0);
 }
 addEventListener('hashchange', route);
 route();
