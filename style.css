@@ -1,0 +1,107 @@
+/* Tokens from DESIGN.md; layout and motion follow simonesniekers.com */
+:root {
+  --color-obsidian: #000000;
+  --color-paper-white: #ffffff;
+  --color-graphite: #4f4c4c;
+  --accent: #3be37f; /* Info panel: neon green from Jo's own portrait */
+  --font: 'Neue Haas Grotesk', 'Helvetica Neue', Helvetica, Inter, Arial, sans-serif;
+  --text-caption: 16px;
+  --edge: 16px;
+  --gap: 400px;
+  --fig: 60%;
+}
+@media (max-width: 720px) { :root { --gap: 180px; --fig: 70%; } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
+/* Page background: a top-to-bottom gradient in the colours of the photo in view (set from app.js) */
+:root { --bgFrom: #fff; --bgTo: #fff; --easing: cubic-bezier(.25, 1, .5, 1); }
+html { background-color: var(--bgFrom); transition: background-color 1s var(--easing); }
+html::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-color: var(--bgTo); transition: background-color 1s var(--easing);
+  -webkit-mask-image: linear-gradient(transparent 10%, #000 40%); mask-image: linear-gradient(transparent 10%, #000 40%);
+}
+body { font: 400 var(--text-caption)/1.2 var(--font); color: var(--color-obsidian); -webkit-font-smoothing: antialiased; }
+body.locked { overflow: hidden; }
+h1, h2 { font: inherit; }
+a, button { color: inherit; font: inherit; text-decoration: none; background: none; border: 0; cursor: pointer; }
+a:hover, button:hover, .on { text-decoration: underline; text-underline-offset: 3px; }
+:focus-visible { outline: 1px solid currentColor; outline-offset: 3px; }
+p + p { margin-top: 1.2em; }
+.muted { color: var(--color-graphite); }
+
+/* Bottom bar: progress, name, info. Inverts against whatever is under it. */
+.bar {
+  position: fixed; left: 0; bottom: 0; z-index: 100; width: 100%; height: 56px; padding: var(--edge);
+  display: flex; justify-content: space-between; align-items: center;
+  color: var(--color-paper-white); mix-blend-mode: difference; user-select: none;
+  transition: transform 1s cubic-bezier(.25, 1, .5, 1);
+}
+.bar h1 { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; }
+body.info-open .bar { transform: translateY(calc(-100dvh + 56px)); color: var(--color-obsidian); mix-blend-mode: normal; }
+
+/* Info panel slides up from the bottom */
+.panel {
+  position: fixed; inset: 0; z-index: 99; overflow-y: auto;
+  background: var(--accent); text-align: center;
+  padding: 96px var(--edge) 120px;
+  transform: translateY(100%); transition: transform 1s cubic-bezier(.25, 1, .5, 1);
+}
+body.info-open .panel { transform: none; }
+.panel img { width: min(40vw, 480px); height: auto; display: block; margin: 0 auto 96px; }
+.panel-text { max-width: 34em; margin: 0 auto; }
+.panel-text a + a { margin-left: .6em; }
+@media (max-width: 720px) { .panel img { width: 70%; } }
+
+/* Feed */
+.hero { height: 100vh; height: 100dvh; padding: 12vh 10vw; }
+.hero img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.feed article { display: flex; }
+.feed article + article { margin-top: var(--gap); }
+.feed .hero + article { margin-top: calc(var(--gap) - 10vh); }
+@media (max-width: 720px) { .feed .hero + article { margin-top: 8vh; } }
+.feed article:last-of-type { margin-bottom: 30vw; }
+.feed .r { justify-content: flex-end; }
+.feed .c { justify-content: center; }
+.feed .l { justify-content: flex-start; }
+.feed figure { width: var(--fig); }
+
+/* Photo with a colour block that wipes away once the image has loaded */
+.ph { position: relative; display: block; overflow: hidden; }
+.ph img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.ph::after {
+  content: ''; position: absolute; inset: 0; background: var(--c);
+  transform-origin: 50% 100%; transition: transform 1.25s linear;
+}
+.ph.loaded::after { transform: scaleY(0); }
+
+/* Caption fades in when it scrolls into view */
+figcaption { display: flex; padding-top: 12px; opacity: 0; transition: opacity 1s; }
+figcaption.seen { opacity: 1; }
+figcaption aside { flex: none; width: 80px; margin-right: 80px; }
+@media (max-width: 720px) { figcaption { font-size: 12px; } figcaption aside { width: auto; margin-right: 40px; } }
+.feed .l figcaption { padding-left: var(--edge); }
+
+/* Shop, product and cart pages */
+.page { padding: var(--edge) var(--edge) 120px; }
+.page-nav { display: flex; justify-content: space-between; margin-bottom: 96px; }
+.page .lede { max-width: 34em; margin-bottom: 96px; }
+.series { margin-bottom: 96px; }
+.series > p { margin-bottom: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+@media (max-width: 600px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+.grid a { display: block; }
+.grid .ph { aspect-ratio: 4 / 5; }
+.grid span { display: flex; justify-content: space-between; margin-top: 6px; }
+
+.product { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+.product .ph { max-height: calc(100dvh - 180px); }
+.product .ph img { object-fit: contain; object-position: left top; }
+.product .opt { margin-top: 2.4em; }
+.product .row { display: flex; gap: 1.2em; flex-wrap: wrap; margin-top: 6px; }
+@media (max-width: 800px) { .product { grid-template-columns: 1fr; } .product .ph { max-height: none; } }
+
+.lines { max-width: 40em; }
+.lines li { list-style: none; display: grid; grid-template-columns: 1fr auto auto; gap: 1.2em; padding: 6px 0; }
+.lines .total { margin-top: 1.2em; }
+.actions { margin-top: 2.4em; display: flex; gap: 1.2em; flex-wrap: wrap; }
