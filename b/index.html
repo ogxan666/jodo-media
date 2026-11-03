@@ -6,12 +6,26 @@
   <title>JoDo Media</title>
   <meta name="description" content="Johanan (Jo Do), Brooklyn photographer. Portrait, street and concert photography. Wallpapers and prints.">
   <meta name="robots" content="noindex, nofollow"> <!-- preview only: remove at launch -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Permanent+Marker&family=Space+Mono:wght@400;700&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main id="view"></main>
 
-  <a class="wordmark" href="#/" aria-label="JoDo Media, home">JoDo</a>
+  <a class="wordmark" href="#/" aria-label="JoDo Media, home">JoDo<span class="tag" aria-hidden="true">Brooklyn NY</span></a>
+
+  <!-- Rough, photocopied edges for the wordmark: warp the outline, then knock out specks -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="rough" x="-5%" y="-10%" width="110%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="4" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="9" xChannelSelector="R" yChannelSelector="G" result="ragged"/>
+      <feTurbulence type="fractalNoise" baseFrequency=".3" numOctaves="2" seed="9" result="speck"/>
+      <feColorMatrix in="speck" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  16 0 0 0 -11.2" result="holes"/>
+      <feComposite in="ragged" in2="holes" operator="out"/>
+    </filter>
+  </svg>
 
   <a class="cart-badge" id="cart-link" href="#/cart"></a>
   <button class="menu-btn" id="menu-btn" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>

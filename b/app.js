@@ -20,15 +20,8 @@ const wallpaperKind = (p) => p.h > p.w * 1.1 ? 'Phone wallpaper' : p.w > p.h * 1
 const alt = (p) => `${title(p)} — photograph by Jo Do`;
 const mod = (a, n) => ((a % n) + n) % n;
 
-// Hover dot colour: the DESIGN-2 accent nearest the photo's most vivid hue; black for neutral photos.
-function accent(p) {
-  const hex = [p.top, p.bottom].find((c) => c !== '#e9e6e1');
-  if (!hex) return '#000000';
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-  const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
-  const h = ((max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360;
-  return h < 15 || h >= 330 ? '#e21715' : h < 40 ? '#f2572c' : h < 70 ? '#b3813c' : h < 170 ? '#5bc52c' : '#086392';
-}
+// Each print hangs a little crooked, with its tape at its own angle (fixed per position, not random).
+const tilt = (i) => `--r:${((i * 7) % 9 - 4) * 0.7}deg;--t:${((i * 5) % 7 - 3) * 2}deg`;
 
 // Home sequence: skyline first, then the three series interleaved.
 const HOME = (() => {
@@ -82,8 +75,8 @@ function renderCanvas(photos) {
   document.body.classList.remove('page-mode');
   let list = photos;
   while (list.length < 24) list = list.concat(photos); // small series repeat so the wall stays full
-  view.innerHTML = `<div class="canvas">${list.map((p) =>
-    `<div class="cell"><a href="#/shop/${p.id}" draggable="false" style="--c:${p.color};color:${accent(p)}"><img src="${ROOT + p.thumb}" alt="${alt(p)}" draggable="false" loading="lazy"></a></div>`).join('')}</div>`;
+  view.innerHTML = `<div class="canvas">${list.map((p, i) =>
+    `<div class="cell"><a class="poster${i % 3 ? '' : ' two'}" href="#/shop/${p.id}" draggable="false" style="--c:${p.color};${tilt(i)}"><img src="${ROOT + p.thumb}" alt="${alt(p)}" draggable="false" loading="lazy"></a></div>`).join('')}</div>`;
   const canvas = view.firstElementChild;
   const els = [...canvas.children];
   els.forEach((el) => { const img = el.querySelector('img'); img.onload = () => img.classList.add('in'); if (img.complete) img.classList.add('in'); });
@@ -159,8 +152,8 @@ function renderCanvas(photos) {
 }
 
 /* ---------- content pages ---------- */
-const photoBlock = (p, src = p.src, lazy = true) =>
-  `<span class="ph" style="--c:${p.color}"><img src="${ROOT + src}" alt="${alt(p)}" width="${p.w}" height="${p.h}"${lazy ? ' loading="lazy"' : ''}></span>`;
+const photoBlock = (p, src = p.src, lazy = true, style = '') =>
+  `<span class="poster" style="--c:${p.color};${style}"><img src="${ROOT + src}" alt="${alt(p)}" width="${p.w}" height="${p.h}"${lazy ? ' loading="lazy"' : ''}></span>`;
 
 function renderAbout() {
   view.innerHTML = `<div class="page"><h1>About me</h1><div class="narrow">
@@ -177,14 +170,14 @@ function renderShop() {
   view.innerHTML = `<div class="page"><h1>Wallpapers &amp; prints</h1>
     <p class="small narrow">Every photograph is available as a high-resolution wallpaper file and as an archival print, made to order in Brooklyn. Pick a photo to see options.</p>
     ${SERIES.map((s) => `<section class="shop-series"><p>${cap(s)}</p><div class="shop-grid">
-      ${PHOTOS.filter((p) => p.series === s).map((p) => `<a href="#/shop/${p.id}">${photoBlock(p, p.thumb)}<span class="cap">${title(p)}</span></a>`).join('')}
+      ${PHOTOS.filter((p) => p.series === s).map((p, i) => `<a href="#/shop/${p.id}">${photoBlock(p, p.thumb, true, tilt(i))}<span class="cap">${title(p)}</span></a>`).join('')}
     </div></section>`).join('')}</div>`;
 }
 
 function renderProduct(p) {
   let size = 1;
   view.innerHTML = `<div class="page product">
-    ${photoBlock(p, p.src, false)}
+    ${photoBlock(p, p.src, false, '--r:-1deg')}
     <div>
       <h1>${title(p)}</h1>
       <p class="small">${p.w} × ${p.h} px original</p>
